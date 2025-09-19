@@ -1,94 +1,89 @@
 from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+from django.db.models import Q
 
-#  Choices Enums
-ROLES = (
-    ('TEACHER','Teacher'),
-    ('STUDENT','Student'),
-    ('PARENT','Parent'),
-    ('PARTNER','Partner'),
-    ('ADMIN','Admin'),
-)
 
 # To-Do List for Classes
 
 ## Orgs
-# - [ ] Organization  
+# - [X] Organization  
 #   -> has many OrgMembership  
 #   -> has many Course  
 
-# - [ ] OrgMembership  
+# - [X] OrgMembership  
 #   -> belongs to Organization  
 #   -> belongs to User  
 
 ## Courses & Enrollment
-# - [ ] Course  
+# - [X] Course  
 #   -> belongs to Organization  
 #   -> belongs to User (teacher)  
 #   -> has many CourseMember  
 #   -> has many Assignment  
 #   -> has many LiveSession  
 
-# - [ ] CourseMember  
+# - [X] CourseMember  
 #   -> belongs to Course  
 #   -> belongs to User  
 
 ## Quizzes & Content
-# - [ ] Quiz  
+# - [X] Quiz  
 #   -> belongs to User (owner)  
 #   -> has many QuizVersion  
 #   -> has many QuizTag  
 #   -> has many Assignment  
 #   -> has many Listing  
 
-# - [ ] QuizVersion  
+# - [X] QuizVersion  
 #   -> belongs to Quiz  
 #   -> has many Question  
 #   -> has many LiveSession  
 
-# - [ ] Question  
+# - [X] Question  
 #   -> belongs to QuizVersion  
 #   -> has many Choice  
 #   -> has many QuestionMedia  
 #   -> has many AttemptItem  
 
-# - [ ] Choice  
+# - [X] Choice  
 #   -> belongs to Question  
 #   -> has many ChoiceMedia  
 
-# - [ ] QuestionMedia  
+# - [X] QuestionMedia  
 #   -> belongs to Question  
 
-# - [ ] ChoiceMedia  
+# - [X] ChoiceMedia  
 #   -> belongs to Choice  
 
-# - [ ] Tag  
+# - [X] Tag  
 #   -> has many QuizTag  
 
-# - [ ] QuizTag  
+# - [X] QuizTag  
 #   -> belongs to Quiz  
 #   -> belongs to Tag  
 
 ## Assignments & Attempts
-# - [ ] Assignment  
+# - [X] Assignment  
 #   -> belongs to Course  
 #   -> belongs to Quiz  
 #   -> has many Attempt  
 
-# - [ ] Attempt  
+# - [X] Attempt  
 #   -> belongs to Assignment  
 #   -> belongs to User  
 #   -> has one AttemptScore  
 #   -> has many AttemptItem  
 
-# - [ ] AttemptItem  
+# - [X] AttemptItem  
 #   -> belongs to Attempt  
 #   -> belongs to Question  
 
-# - [ ] AttemptScore  
+# - [X] AttemptScore  
 #   -> belongs to Attempt (OneToOne)  
 
 ## Live Sessions
-# - [ ] LiveSession  
+# - [X] LiveSession  
 #   -> belongs to QuizVersion  
 #   -> belongs to Course  
 #   -> belongs to User (host)  
@@ -96,44 +91,44 @@ ROLES = (
 #   -> has many LiveEvent  
 #   -> has many LiveLeaderboard  
 
-# - [ ] LiveParticipant  
+# - [X] LiveParticipant  
 #   -> belongs to LiveSession  
 #   -> belongs to User  
 #   -> has many LiveLeaderboard  
 
-# - [ ] LiveEvent  
+# - [X] LiveEvent  
 #   -> belongs to LiveSession  
 
-# - [ ] LiveLeaderboard  
+# - [X] LiveLeaderboard  
 #   -> belongs to LiveSession  
 #   -> belongs to LiveParticipant  
 
 ## Gamification
-# - [ ] XPTransaction  
+# - [X] XPTransaction  
 #   -> belongs to User  
 
-# - [ ] Badge  
+# - [X] Badge  
 #   -> has many UserBadge  
 
-# - [ ] UserBadge  
+# - [X] UserBadge  
 #   -> belongs to User  
 #   -> belongs to Badge  
 
 ## Marketplace & Wallets
-# - [ ] Wallet  
+# - [X] Wallet  
 #   -> belongs to User (OneToOne)  
 #   -> has many Payout  
 
-# - [ ] Listing  
+# - [X] Listing  
 #   -> belongs to Quiz  
 #   -> belongs to User (seller)  
 #   -> has many Purchase  
 
-# - [ ] Purchase  
+# - [X] Purchase  
 #   -> belongs to Listing  
 #   -> belongs to User (buyer)  
 
-# - [ ] Payout  
+# - [X] Payout  
 #   -> belongs to Wallet  
 
 
