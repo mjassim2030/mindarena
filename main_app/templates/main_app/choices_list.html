@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Choices</h1>
+  <a class="btn btn-primary" href="/choices/create/">New Choice</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Question</th><th>Label</th><th>Correct</th><th>Order</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.question.prompt|truncatechars:60 }}</td><td>{{ obj.label|truncatechars:40 }}</td><td>{{ obj.is_correct }}</td><td>{{ obj.order_index }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/choices/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/choices/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No choices yet.</div>
+{% endif %}
+{% endblock %}

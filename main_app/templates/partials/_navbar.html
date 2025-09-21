@@ -1,13 +1,10 @@
-<!-- templates/partials/_navbar.html -->
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
   <div class="container">
     <a class="navbar-brand fw-semibold" href="/">MindArena</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-            data-bs-target="#topnav" aria-controls="topnav"
-            aria-expanded="false" aria-label="Toggle navigation">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topnav"
+      aria-controls="topnav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
-
     <div id="topnav" class="collapse navbar-collapse">
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link" href="/organizations/">Organizations</a></li>
@@ -15,20 +12,36 @@
         <li class="nav-item"><a class="nav-link" href="/quizzes/">Quizzes</a></li>
         <li class="nav-item"><a class="nav-link" href="/assignments/">Assignments</a></li>
         <li class="nav-item"><a class="nav-link" href="/listings/">Marketplace</a></li>
+
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="liveMenu" role="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
+            Live
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="liveMenu">
+            <li><a class="dropdown-item" href="/live-sessions/">Sessions</a></li>
+            <li><a class="dropdown-item" href="/live-participants/">Participants</a></li>
+            <li><a class="dropdown-item" href="/live-events/">Events</a></li>
+            <li><a class="dropdown-item" href="/live-leaderboard/">Leaderboard</a></li>
+          </ul>
+        </li>
+
+
       </ul>
       <ul class="navbar-nav">
         {% if user.is_authenticated %}
-          <li class="nav-item"><span class="nav-link disabled">Hi, {{ user.username }}</span></li>
-          <li class="nav-item"><a class="nav-link" href="/wallets/">Wallets</a></li>
-          <li class="nav-item">
-            <form method="post" action="/logout/" class="d-inline">
-              {% csrf_token %}
-              <button type="submit" class="nav-link btn btn-link p-0">Logout</button>
-            </form>
-          </li>
+        <li class="nav-item"><span class="nav-link disabled">Hi, {{ user.username }}</span></li>
+        <li class="nav-item"><a class="nav-link" href="/wallets/">Wallets</a></li>
+        <li class="nav-item">
+          <form method="post" action="/logout/" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="nav-link btn btn-link p-0">Logout</button>
+          </form>
+        </li>
         {% else %}
-          <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
-          <li class="nav-item"><a class="nav-link" href="/signup/">Sign up</a></li>
+        <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="/signup/">Sign up</a></li>
         {% endif %}
       </ul>
     </div>

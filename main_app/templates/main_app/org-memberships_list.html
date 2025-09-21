@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Org Memberships</h1>
+  <a class="btn btn-primary" href="/org-memberships/create/">New Org Membership</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Organization</th><th>User</th><th>Role</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.org.name }}</td><td>{{ obj.user.username }}</td><td>{{ obj.org_role }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/org-memberships/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/org-memberships/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No org memberships yet.</div>
+{% endif %}
+{% endblock %}

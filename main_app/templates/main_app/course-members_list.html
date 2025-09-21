@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Course Members</h1>
+  <a class="btn btn-primary" href="/course-members/create/">New Course Member</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Course</th><th>User</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.course.name }}</td><td>{{ obj.user.username }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/course-members/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/course-members/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No course members yet.</div>
+{% endif %}
+{% endblock %}

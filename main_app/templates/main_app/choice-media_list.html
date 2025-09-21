@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Choice Media</h1>
+  <a class="btn btn-primary" href="/choice-media/create/">New Choice Media</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Choice</th><th>Kind</th><th>URL</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.choice.label|truncatechars:60 }}</td><td>{{ obj.kind }}</td><td>{{ obj.url|truncatechars:40 }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/choice-media/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/choice-media/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No choice media yet.</div>
+{% endif %}
+{% endblock %}

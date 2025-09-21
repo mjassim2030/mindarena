@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Questions</h1>
+  <a class="btn btn-primary" href="/questions/create/">New Question</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Quiz</th><th>Version</th><th>Type</th><th>Prompt</th><th>Order</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.quiz_version.quiz.title|default:'-' }}</td><td>{{ obj.quiz_version.version_no|default:'-' }}</td><td>{{ obj.type }}</td><td>{{ obj.prompt|truncatechars:60 }}</td><td>{{ obj.order_index }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/questions/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/questions/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No questions yet.</div>
+{% endif %}
+{% endblock %}

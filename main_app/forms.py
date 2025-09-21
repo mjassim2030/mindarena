@@ -96,7 +96,11 @@ class AssignmentForm(forms.ModelForm):
     class Meta:
         model = Assignment
         fields = "__all__"
-        widgets = {"settings": forms.Textarea(attrs={"rows": 3})}
+        widgets = {
+            "settings": forms.Textarea(attrs={"rows": 3}),
+            "open_at": forms.DateTimeInput(attrs={"type":"datetime-local"}),
+            "due_at":  forms.DateTimeInput(attrs={"type":"datetime-local"}),
+        }
 
 class AttemptForm(forms.ModelForm):
     class Meta:
@@ -119,7 +123,11 @@ class LiveSessionForm(forms.ModelForm):
     class Meta:
         model = LiveSession
         fields = "__all__"
-        widgets = {"settings": forms.Textarea(attrs={"rows": 3})}
+        widgets = {
+            "settings": forms.Textarea(attrs={"rows": 3}),
+            "started_at": forms.DateTimeInput(attrs={"type":"datetime-local"}),
+            "ended_at":  forms.DateTimeInput(attrs={"type":"datetime-local"}),
+            }
 
 class LiveParticipantForm(forms.ModelForm):
     class Meta:

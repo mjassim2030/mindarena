@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Attempts</h1>
+  <a class="btn btn-primary" href="/attempts/create/">New Attempt</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Assignment</th><th>User</th><th>Status</th><th>Started</th><th>Finished</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.assignment.id }}</td><td>{{ obj.user.username }}</td><td>{{ obj.status }}</td><td>{{ obj.started_at|date:'Y-m-d H:i' }}</td><td>{{ obj.finished_at|date:'Y-m-d H:i' }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/attempts/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/attempts/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No attempts yet.</div>
+{% endif %}
+{% endblock %}

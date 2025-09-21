@@ -1,0 +1,28 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Attempt Scores</h1>
+  <a class="btn btn-primary" href="/attempt-scores/create/">New Attempt Score</a>
+</div>
+{% if object_list %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Attempt</th><th>Total</th><th>Max</th><th>Percent</th><th style="width:180px;">Actions</th></tr></thead>
+    <tbody>
+      {% for obj in object_list %}
+      <tr>
+        <td>{{ obj.attempt.id }}</td><td>{{ obj.total_points }}</td><td>{{ obj.max_points }}</td><td>{{ obj.percent }}</td>
+        <td>
+          <a class="btn btn-outline-secondary btn-sm" href="/attempt-scores/{{ obj.id }}/update/">Edit</a>
+          <a class="btn btn-outline-danger btn-sm" href="/attempt-scores/{{ obj.id }}/delete/">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No attempt scores yet.</div>
+{% endif %}
+{% endblock %}
