@@ -52,6 +52,7 @@ class SignOutView(LogoutView):
 # Orgs
 class OrganizationListView(LoginRequiredMixin, ListView):
     model = Organization
+    ordering = ["name"]
 
 class OrganizationCreateView(LoginRequiredMixin, CreateView):
     model = Organization
@@ -69,7 +70,6 @@ class OrganizationDeleteView(LoginRequiredMixin, DeleteView):
 
 class OrgMembershipListView(LoginRequiredMixin, ListView):
     model = OrgMembership
-    paginate_by = 25
     ordering = ["org_id","user_id"]
 
 class OrgMembershipCreateView(LoginRequiredMixin, CreateView):
@@ -89,6 +89,9 @@ class OrgMembershipDeleteView(LoginRequiredMixin, DeleteView):
 # Courses
 class CourseListView(LoginRequiredMixin, ListView):
     model = Course
+    ordering = ["name"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("org","teacher")
 
 class CourseCreateView(LoginRequiredMixin, CreateView):
     model = Course
@@ -107,6 +110,8 @@ class CourseDeleteView(LoginRequiredMixin, DeleteView):
 class CourseMemberListView(LoginRequiredMixin, ListView):
     model = CourseMember
     ordering = ["course_id","user_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("course","user")
 
 class CourseMemberCreateView(LoginRequiredMixin, CreateView):
     model = CourseMember
@@ -125,6 +130,9 @@ class CourseMemberDeleteView(LoginRequiredMixin, DeleteView):
 # Quizzes
 class QuizListView(LoginRequiredMixin, ListView):
     model = Quiz
+    ordering = ["title"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("owner")
 
 class QuizCreateView(LoginRequiredMixin, CreateView):
     model = Quiz
@@ -142,6 +150,9 @@ class QuizDeleteView(LoginRequiredMixin, DeleteView):
 
 class QuizVersionListView(LoginRequiredMixin, ListView):
     model = QuizVersion
+    ordering = ["quiz_id","version_no"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("quiz")
 
 class QuizVersionCreateView(LoginRequiredMixin, CreateView):
     model = QuizVersion
@@ -159,6 +170,9 @@ class QuizVersionDeleteView(LoginRequiredMixin, DeleteView):
 
 class QuestionListView(LoginRequiredMixin, ListView):
     model = Question
+    ordering = ["quiz_version_id","order_index"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("quiz_version")
 
 class QuestionCreateView(LoginRequiredMixin, CreateView):
     model = Question
@@ -176,6 +190,9 @@ class QuestionDeleteView(LoginRequiredMixin, DeleteView):
 
 class ChoiceListView(LoginRequiredMixin, ListView):
     model = Choice
+    ordering = ["question_id","order_index"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("question")
 
 class ChoiceCreateView(LoginRequiredMixin, CreateView):
     model = Choice
@@ -193,6 +210,9 @@ class ChoiceDeleteView(LoginRequiredMixin, DeleteView):
 
 class QuestionMediaListView(LoginRequiredMixin, ListView):
     model = QuestionMedia
+    ordering = ["question_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("question")
 
 class QuestionMediaCreateView(LoginRequiredMixin, CreateView):
     model = QuestionMedia
@@ -210,6 +230,9 @@ class QuestionMediaDeleteView(LoginRequiredMixin, DeleteView):
 
 class ChoiceMediaListView(LoginRequiredMixin, ListView):
     model = ChoiceMedia
+    ordering = ["choice_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("choice")
 
 class ChoiceMediaCreateView(LoginRequiredMixin, CreateView):
     model = ChoiceMedia
@@ -227,6 +250,7 @@ class ChoiceMediaDeleteView(LoginRequiredMixin, DeleteView):
 
 class TagListView(LoginRequiredMixin, ListView):
     model = Tag
+    ordering = ["name"]
 
 class TagCreateView(LoginRequiredMixin, CreateView):
     model = Tag
@@ -244,6 +268,9 @@ class TagDeleteView(LoginRequiredMixin, DeleteView):
 
 class QuizTagListView(LoginRequiredMixin, ListView):
     model = QuizTag
+    ordering = ["quiz_id","tag_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("quiz","tag")
 
 class QuizTagCreateView(LoginRequiredMixin, CreateView):
     model = QuizTag
@@ -262,6 +289,9 @@ class QuizTagDeleteView(LoginRequiredMixin, DeleteView):
 # Assignments & Attempts
 class AssignmentListView(LoginRequiredMixin, ListView):
     model = Assignment
+    ordering = ["-open_at"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("course","quiz")
 
 class AssignmentCreateView(LoginRequiredMixin, CreateView):
     model = Assignment
@@ -279,6 +309,9 @@ class AssignmentDeleteView(LoginRequiredMixin, DeleteView):
 
 class AttemptListView(LoginRequiredMixin, ListView):
     model = Attempt
+    ordering = ["-started_at"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("assignment","user")
 
 class AttemptCreateView(LoginRequiredMixin, CreateView):
     model = Attempt
@@ -296,6 +329,9 @@ class AttemptDeleteView(LoginRequiredMixin, DeleteView):
 
 class AttemptItemListView(LoginRequiredMixin, ListView):
     model = AttemptItem
+    ordering = ["attempt_id","order_index"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("attempt","question")
 
 class AttemptItemCreateView(LoginRequiredMixin, CreateView):
     model = AttemptItem
@@ -313,6 +349,9 @@ class AttemptItemDeleteView(LoginRequiredMixin, DeleteView):
 
 class AttemptScoreListView(LoginRequiredMixin, ListView):
     model = AttemptScore
+    ordering = ["attempt_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("attempt")
 
 class AttemptScoreCreateView(LoginRequiredMixin, CreateView):
     model = AttemptScore
@@ -331,6 +370,9 @@ class AttemptScoreDeleteView(LoginRequiredMixin, DeleteView):
 # Live Sessions
 class LiveSessionListView(LoginRequiredMixin, ListView):
     model = LiveSession
+    ordering = ["-started_at"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("quiz_version","course","host")
 
 class LiveSessionCreateView(LoginRequiredMixin, CreateView):
     model = LiveSession
@@ -348,6 +390,9 @@ class LiveSessionDeleteView(LoginRequiredMixin, DeleteView):
 
 class LiveParticipantListView(LoginRequiredMixin, ListView):
     model = LiveParticipant
+    ordering = ["session_id","nickname"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("session","user")
 
 class LiveParticipantCreateView(LoginRequiredMixin, CreateView):
     model = LiveParticipant
@@ -365,6 +410,9 @@ class LiveParticipantDeleteView(LoginRequiredMixin, DeleteView):
 
 class LiveEventListView(LoginRequiredMixin, ListView):
     model = LiveEvent
+    ordering = ["-ts"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("session")
 
 class LiveEventCreateView(LoginRequiredMixin, CreateView):
     model = LiveEvent
@@ -382,6 +430,9 @@ class LiveEventDeleteView(LoginRequiredMixin, DeleteView):
 
 class LiveLeaderboardListView(LoginRequiredMixin, ListView):
     model = LiveLeaderboard
+    ordering = ["session_id","rank"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("session","participant")
 
 class LiveLeaderboardCreateView(LoginRequiredMixin, CreateView):
     model = LiveLeaderboard
@@ -400,6 +451,9 @@ class LiveLeaderboardDeleteView(LoginRequiredMixin, DeleteView):
 # Gamification
 class XPTransactionListView(LoginRequiredMixin, ListView):
     model = XPTransaction
+    ordering = ["-id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("user")
 
 class XPTransactionCreateView(LoginRequiredMixin, CreateView):
     model = XPTransaction
@@ -417,7 +471,6 @@ class XPTransactionDeleteView(LoginRequiredMixin, DeleteView):
 
 class BadgeListView(LoginRequiredMixin, ListView):
     model = Badge
-    paginate_by = 25
     ordering = ["code"]
 
 class BadgeCreateView(LoginRequiredMixin, CreateView):
@@ -436,6 +489,9 @@ class BadgeDeleteView(LoginRequiredMixin, DeleteView):
 
 class UserBadgeListView(LoginRequiredMixin, ListView):
     model = UserBadge
+    ordering = ["user_id","badge_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("user","badge")
 
 class UserBadgeCreateView(LoginRequiredMixin, CreateView):
     model = UserBadge
@@ -454,6 +510,9 @@ class UserBadgeDeleteView(LoginRequiredMixin, DeleteView):
 # Marketplace & Wallets
 class WalletListView(LoginRequiredMixin, ListView):
     model = Wallet
+    ordering = ["user_id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("user")
 
 class WalletCreateView(LoginRequiredMixin, CreateView):
     model = Wallet
@@ -471,6 +530,9 @@ class WalletDeleteView(LoginRequiredMixin, DeleteView):
 
 class ListingListView(LoginRequiredMixin, ListView):
     model = Listing
+    ordering = ["-id"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("quiz","seller")
 
 class ListingCreateView(LoginRequiredMixin, CreateView):
     model = Listing
@@ -488,6 +550,9 @@ class ListingDeleteView(LoginRequiredMixin, DeleteView):
 
 class PurchaseListView(LoginRequiredMixin, ListView):
     model = Purchase
+    ordering = ["-purchased_at"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("listing","buyer")
 
 class PurchaseCreateView(LoginRequiredMixin, CreateView):
     model = Purchase
@@ -505,6 +570,9 @@ class PurchaseDeleteView(LoginRequiredMixin, DeleteView):
 
 class PayoutListView(LoginRequiredMixin, ListView):
     model = Payout
+    ordering = ["-requested_at"]
+    def get_queryset(self):
+        return super().get_queryset().select_related("wallet")
 
 class PayoutCreateView(LoginRequiredMixin, CreateView):
     model = Payout
