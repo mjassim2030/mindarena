@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+  {% if user.is_authenticated %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h4">Welcome back, {{ user.username }}!</h1>
+      <a class="btn btn-primary" href="/organizations/">Go to Organizations</a>
+    </div>
+  {% else %}
+    <div class="text-center py-5">
+      <h1 class="display-6 mb-3">MindArena</h1>
+      <p class="lead mb-4">Create courses, quizzes, assignments, and run live sessions.</p>
+      <a class="btn btn-primary me-2" href="/signup/">Create an account</a>
+      <a class="btn btn-outline-secondary" href="/login/">Sign in</a>
+    </div>
+  {% endif %}
+{% endblock %}
