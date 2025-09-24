@@ -1,4 +1,3 @@
-# main_app/consumers.py
 from __future__ import annotations
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
@@ -21,8 +20,6 @@ from .views import _get_idx_and_total, _set_idx_and_total  # reuse helpers
 
 User = get_user_model()
 
-# ----------------------- Small serializer & broadcast helper -----------------------
-
 def _serialize_session_for_course(session: LiveSession) -> dict:
     d = dict(session.details or {})
     return {
@@ -34,12 +31,6 @@ def _serialize_session_for_course(session: LiveSession) -> dict:
     }
 
 def broadcast_course_session(session: LiveSession, op: str) -> None:
-    """
-    Use this from *views* to notify the course page:
-      - op="create"   after creating a LiveSession
-      - op="update"   after regenerating code / starting the session
-      - op="remove"   after ending/deleting a session
-    """
     payload = {"op": op}
     if op == "remove":
         payload["session"] = {"id": session.id}
@@ -49,8 +40,6 @@ def broadcast_course_session(session: LiveSession, op: str) -> None:
         f"course_{session.quiz.course_id}",
         {"type": "course.update", "payload": payload},
     )
-
-# ----------------------- Pure sync helpers -----------------------
 
 def _questions(session: LiveSession):
     """Normalize quiz questions shape from session.quiz.content."""
