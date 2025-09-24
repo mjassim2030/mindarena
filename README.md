@@ -154,7 +154,7 @@ python manage.py runserver
 - Use `django-admin shell` or a custom `seed_demo.py` script to create orgs, a teacher, a course, quizzes, and a demo session.
 
 ## Online Demo
-[Click Here]('https://mindarena.onrender.com/')
+[Click Here](https://mindarena.onrender.com/)
 
 ## 📡 Realtime Flows
 
@@ -192,4 +192,4 @@ python manage.py seed_demo_mindarena
 Guarded through allowed(user, action, resource, org=…) checks in views/consumers.
 
 ## References
-[Trello Board]('https://trello.com/invite/b/68bf146cea791ad4cf9c4cb0/ATTI67172a28cb038d2e8d0749263579e6c7C7321130/mind-arena')
+[Trello Board](https://trello.com/invite/b/68bf146cea791ad4cf9c4cb0/ATTI67172a28cb038d2e8d0749263579e6c7C7321130/mind-arena)
