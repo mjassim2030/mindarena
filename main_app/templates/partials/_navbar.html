@@ -1,3 +1,6 @@
+{% load static %}
+{% load permissions_tags %}
+
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
   <div class="container">
     <a class="navbar-brand fw-semibold" href="/">MindArena</a>
@@ -5,43 +8,70 @@
       aria-controls="topnav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
+
     <div id="topnav" class="collapse navbar-collapse">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="/organizations/">Organizations</a></li>
-        <li class="nav-item"><a class="nav-link" href="/courses/">Courses</a></li>
-        <li class="nav-item"><a class="nav-link" href="/quizzes/">Quizzes</a></li>
-        <li class="nav-item"><a class="nav-link" href="/assignments/">Assignments</a></li>
-        <li class="nav-item"><a class="nav-link" href="/listings/">Marketplace</a></li>
 
-
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" id="liveMenu" role="button" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            Live
-          </a>
-          <ul class="dropdown-menu" aria-labelledby="liveMenu">
-            <li><a class="dropdown-item" href="/live-sessions/">Sessions</a></li>
-            <li><a class="dropdown-item" href="/live-participants/">Participants</a></li>
-            <li><a class="dropdown-item" href="/live-events/">Events</a></li>
-            <li><a class="dropdown-item" href="/live-leaderboard/">Leaderboard</a></li>
-          </ul>
+        {# Organizations (show only if user has READ_ALL on organization) #}
+        {% if user.is_authenticated and user|can_read_all_orgs %}
+        <li class="nav-item">
+          <a class="nav-link" href="/organizations/">Organizations</a>
         </li>
+        {% endif %}
 
+        {# Courses #}
+        {% if user.is_authenticated and user|can_view_courses %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'course_list' %}">Courses</a>
+        </li>
+        {% endif %}
 
+        {# Quizzes #}
+        {% if user.is_authenticated and user|can_view_quizzes %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'quiz_list' %}">Quizzes</a>
+        </li>
+        {% endif %}
+
+        {# Live Sessions #}
+        {% if user.is_authenticated and user|can_view_livesessions %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'livesession_join' %}">Live Sessions</a>
+        </li>
+        {% endif %}
+
+        {# Live Participants #}
+        {% if user.is_authenticated and user|can_view_liveparticipants %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'livesession_join' %}">Live Participants</a>
+        </li>
+        {% endif %}
       </ul>
+
       <ul class="navbar-nav">
         {% if user.is_authenticated %}
-        <li class="nav-item"><span class="nav-link disabled">Hi, {{ user.username }}</span></li>
-        <li class="nav-item"><a class="nav-link" href="/wallets/">Wallets</a></li>
+        {# Optional: show Join Live quick link for students/parents #}
+        {% if user|is_student_or_parent %}
         <li class="nav-item">
-          <form method="post" action="/logout/" class="d-inline">
+          <a class="nav-link" href="{% url 'livesession_join' %}">Join Live</a>
+        </li>
+        {% endif %}
+
+        <li class="nav-item"><span class="nav-link disabled">Hi, {{ user.username }}</span></li>
+        <li class="nav-item">
+          <form method="post" action="/logout/" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="nav-link btn btn-link p-0">Logout</button>
           </form>
         </li>
         {% else %}
-        <li class="nav-item"><a class="nav-link" href="/login/">Login</a></li>
-        <li class="nav-item"><a class="nav-link" href="/signup/">Sign up</a></li>
+        <section class="pt-1">
+          <div class="container-lg d-flex justify-content-end gap-2">
+            <a class="btn btn-primary" href="/login/">Login</a>
+            <a class="btn btn-success" href="/join/">Join Now</a>
+          </div>
+        </section>
+
         {% endif %}
       </ul>
     </div>

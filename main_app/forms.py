@@ -1,184 +1,194 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import UserCreationForm
+from django.forms import formset_factory
 
-from .models import (
-    Organization, OrgMembership,
-    Course, CourseMember,
-    Quiz, QuizVersion, Question, Choice, QuestionMedia, ChoiceMedia,
-    Tag, QuizTag,
-    Assignment, Attempt, AttemptItem, AttemptScore,
-    LiveSession, LiveParticipant, LiveEvent, LiveLeaderboard,
-    XPTransaction, Badge, UserBadge,
-    Wallet, Listing, Purchase, Payout,
+from .constants import (
+    ROLE_CHOICES,
+    ROLE_SUPERUSER,
+    ROLE_ADMIN,
+    ROLE_MANAGER,
+    ROLE_TEACHER,
+)
+from .models import Organization, OrgMembership, Course
+
+User = get_user_model()
+
+ROLE_LIMIT = {"manager", "teacher", "student", "parents"}
+ROLE_CHOICES_LIMITED = tuple((v, l) for v, l in ROLE_CHOICES if v in ROLE_LIMIT)
+
+QTYPES = (
+    ("MCQ", "Multiple choice (one correct)"),
+    ("MSQ", "Multiple select (many correct)"),
+    ("TF", "True/False"),
 )
 
-# Auth
+
 class SignUpForm(UserCreationForm):
-    # Optional email field (keep or remove as you wish)
     email = forms.EmailField(required=False)
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.order_by("name"),
+        required=True,
+        label="Organization",
+        empty_label="— Select organization —",
+    )
 
-    class Meta:
+    class Meta(UserCreationForm.Meta):
         model = User
-        fields = ("username","email","password1","password2")
+        fields = ("username", "email", "password1", "password2")
 
 
-# Orgs
-class OrganizationForm(forms.ModelForm):
-    class Meta:
-        model = Organization
-        fields = "__all__"
+class JoinOrganizationForm(UserCreationForm):
+    org_name = forms.CharField(label="Organization name", max_length=255)
+    country = forms.CharField(label="Country", max_length=64)
+    email = forms.EmailField(label="Email", required=True)
 
-class OrgMembershipForm(forms.ModelForm):
-    class Meta:
-        model = OrgMembership
-        fields = "__all__"
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username", "email")
 
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("A user with this email already exists.")
+        return email
 
-# Courses
-class CourseForm(forms.ModelForm):
-    class Meta:
-        model = Course
-        fields = "__all__"
-
-class CourseMemberForm(forms.ModelForm):
-    class Meta:
-        model = CourseMember
-        fields = "__all__"
+    def create_organization(self) -> Organization:
+        return Organization.objects.create(
+            name=self.cleaned_data["org_name"],
+            country=self.cleaned_data["country"],
+        )
 
 
-# Quizzes
-class QuizForm(forms.ModelForm):
-    class Meta:
-        model = Quiz
-        fields = "__all__"
-
-class QuizVersionForm(forms.ModelForm):
-    class Meta:
-        model = QuizVersion
-        fields = "__all__"
-
-class QuestionForm(forms.ModelForm):
-    class Meta:
-        model = Question
-        fields = "__all__"
-        widgets = {"meta": forms.Textarea(attrs={"rows": 3})}
-
-class ChoiceForm(forms.ModelForm):
-    class Meta:
-        model = Choice
-        fields = "__all__"
-
-class QuestionMediaForm(forms.ModelForm):
-    class Meta:
-        model = QuestionMedia
-        fields = "__all__"
-        widgets = {"attrib": forms.Textarea(attrs={"rows": 3})}
-
-class ChoiceMediaForm(forms.ModelForm):
-    class Meta:
-        model = ChoiceMedia
-        fields = "__all__"
-
-class TagForm(forms.ModelForm):
-    class Meta:
-        model = Tag
-        fields = "__all__"
-
-class QuizTagForm(forms.ModelForm):
-    class Meta:
-        model = QuizTag
-        fields = "__all__"
+class OrgMemberCreateForm(forms.Form):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.order_by("name"),
+        required=False,
+        label="Organization",
+        empty_label="— Select organization —",
+    )
+    role = forms.ChoiceField(choices=ROLE_CHOICES_LIMITED, label="Role")
+    username = forms.CharField(max_length=150, label="Username")
+    email = forms.EmailField(label="Email")
+    password = forms.CharField(label="Password", widget=forms.PasswordInput, required=False)
 
 
-# Assignments & Attempts
-class AssignmentForm(forms.ModelForm):
-    class Meta:
-        model = Assignment
-        fields = "__all__"
-        widgets = {
-            "settings": forms.Textarea(attrs={"rows": 3}),
-            "open_at": forms.DateTimeInput(attrs={"type":"datetime-local"}),
-            "due_at":  forms.DateTimeInput(attrs={"type":"datetime-local"}),
-        }
+class OrgMemberEditForm(forms.Form):
+    role = forms.ChoiceField(choices=ROLE_CHOICES_LIMITED, label="Role")
+    username = forms.CharField(max_length=150, label="Username")
+    email = forms.EmailField(label="Email")
+    password = forms.CharField(label="New Password", widget=forms.PasswordInput, required=False)
 
-class AttemptForm(forms.ModelForm):
-    class Meta:
-        model = Attempt
-        fields = "__all__"
-
-class AttemptItemForm(forms.ModelForm):
-    class Meta:
-        model = AttemptItem
-        fields = "__all__"
-
-class AttemptScoreForm(forms.ModelForm):
-    class Meta:
-        model = AttemptScore
-        fields = "__all__"
-
-
-# Live Sessions
-class LiveSessionForm(forms.ModelForm):
-    class Meta:
-        model = LiveSession
-        fields = "__all__"
-        widgets = {
-            "settings": forms.Textarea(attrs={"rows": 3}),
-            "started_at": forms.DateTimeInput(attrs={"type":"datetime-local"}),
-            "ended_at":  forms.DateTimeInput(attrs={"type":"datetime-local"}),
+    def initialize_from_membership(self, membership: OrgMembership):
+        u = membership.user
+        self.initial.update(
+            {
+                "role": membership.role,
+                "username": u.username,
+                "email": u.email,
             }
-
-class LiveParticipantForm(forms.ModelForm):
-    class Meta:
-        model = LiveParticipant
-        fields = "__all__"
-
-class LiveEventForm(forms.ModelForm):
-    class Meta:
-        model = LiveEvent
-        fields = "__all__"
-
-class LiveLeaderboardForm(forms.ModelForm):
-    class Meta:
-        model = LiveLeaderboard
-        fields = "__all__"
+        )
 
 
-# Gamification
-class XPTransactionForm(forms.ModelForm):
-    class Meta:
-        model = XPTransaction
-        fields = "__all__"
-
-class BadgeForm(forms.ModelForm):
-    class Meta:
-        model = Badge
-        fields = "__all__"
-
-class UserBadgeForm(forms.ModelForm):
-    class Meta:
-        model = UserBadge
-        fields = "__all__"
+class CourseJoinForm(forms.Form):
+    join_code = forms.CharField(max_length=32, label="Join Code")
 
 
-# Marketplace & Wallets
-class WalletForm(forms.ModelForm):
-    class Meta:
-        model = Wallet
-        fields = "__all__"
+class CourseCreateForm(forms.Form):
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.order_by("name"),
+        required=False,
+        label="Organization",
+        empty_label="— Select organization —",
+    )
+    teacher = forms.ModelChoiceField(queryset=User.objects.none(), label="Teacher")
+    course_name = forms.CharField(max_length=255, label="Course name")
+    join_code = forms.CharField(max_length=32, label="Join code")
+    subject_category = forms.ChoiceField(
+        choices=Course._meta.get_field("subject_category").choices, label="Subject"
+    )
 
-class ListingForm(forms.ModelForm):
-    class Meta:
-        model = Listing
-        fields = "__all__"
+    def __init__(self, *args, actor_role=None, actor_org=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.actor_role = actor_role
+        self.actor_org = actor_org
 
-class PurchaseForm(forms.ModelForm):
-    class Meta:
-        model = Purchase
-        fields = "__all__"
+        if actor_role in {ROLE_ADMIN, ROLE_MANAGER} and actor_org:
+            self.fields["organization"].required = False
+            self.fields["organization"].widget = forms.HiddenInput()
+            self.initial["organization"] = actor_org.pk
+            teacher_ids = (
+                OrgMembership.objects.filter(organization=actor_org, role=ROLE_TEACHER)
+                .values_list("user_id", flat=True)
+            )
+            self.fields["teacher"].queryset = User.objects.filter(id__in=teacher_ids).order_by("username")
+        else:
+            teacher_ids = OrgMembership.objects.filter(role=ROLE_TEACHER).values_list("user_id", flat=True)
+            self.fields["teacher"].queryset = User.objects.filter(id__in=teacher_ids).order_by("username")
 
-class PayoutForm(forms.ModelForm):
-    class Meta:
-        model = Payout
-        fields = "__all__"
+    def cleaned_org(self) -> Organization:
+        if self.actor_role in {ROLE_ADMIN, ROLE_MANAGER} and self.actor_org:
+            return self.actor_org
+        org = self.cleaned_data.get("organization")
+        if not org:
+            raise forms.ValidationError("Organization is required.")
+        return org
+
+    def cleaned_teacher(self, org: Organization) -> User:
+        teacher: User = self.cleaned_data["teacher"]
+        exists = OrgMembership.objects.filter(organization=org, user=teacher, role=ROLE_TEACHER).exists()
+        if not exists:
+            raise forms.ValidationError("Selected teacher is not part of the chosen organization.")
+        return teacher
+
+
+class QuizCreateForm(forms.Form):
+    course = forms.ModelChoiceField(queryset=Course.objects.none(), label="Course")
+    quiz_title = forms.CharField(max_length=255, label="Quiz title")
+
+    def __init__(self, *args, actor_role=None, actor_org=None, actor_user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.actor_role = actor_role
+        self.actor_org = actor_org
+        self.actor_user = actor_user
+
+        if actor_role == ROLE_SUPERUSER:
+            qs = Course.objects.select_related("organization", "teacher").order_by("course_name")
+        elif actor_role in {ROLE_ADMIN, ROLE_MANAGER} and actor_org:
+            qs = Course.objects.filter(organization=actor_org).select_related("teacher").order_by("course_name")
+        elif actor_role == ROLE_TEACHER and actor_org:
+            qs = Course.objects.filter(organization=actor_org, teacher=actor_user).order_by("course_name")
+        else:
+            qs = Course.objects.none()
+
+        self.fields["course"].queryset = qs
+
+
+class QuizEditForm(QuizCreateForm):
+    def __init__(self, *args, actor_role=None, actor_org=None, actor_user=None, instance=None, **kwargs):
+        super().__init__(*args, actor_role=actor_role, actor_org=actor_org, actor_user=actor_user, **kwargs)
+        if instance:
+            self.initial["course"] = instance.course_id
+            self.initial["quiz_title"] = instance.quiz_title
+        self.instance = instance
+        
+
+class QuestionForm(forms.Form):
+    question_type = forms.ChoiceField(
+        choices=(("MCQ", "Multiple choice"), ("MSQ", "Multiple select"), ("TF", "True/False")),
+        label="Type",
+        widget=forms.HiddenInput  # we’ll control it with pretty buttons in the template
+    )
+    image = forms.ImageField(required=False, label="Upload image")
+    question = forms.CharField(max_length=1000, label="Question", widget=forms.Textarea(attrs={"rows": 3}))
+    correct_tf = forms.ChoiceField(
+        choices=(("T", "True"), ("F", "False")),
+        widget=forms.RadioSelect, required=False, label="Correct answer (TF)"
+    )
+
+class ChoiceForm(forms.Form):
+    text = forms.CharField(max_length=255, label="Choice")
+    is_correct = forms.BooleanField(required=False, label="Correct")
+
+
+ChoiceFormSet = formset_factory(ChoiceForm, extra=2, can_delete=True)

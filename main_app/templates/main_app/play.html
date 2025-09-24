@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 860px;">
+
+  {% if state == "waiting" %}
+    <h1 class="h5 mb-3">Live Session #{{ session.id }}</h1>
+    <div class="alert alert-info">Session has not started yet. Please wait for the host.</div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'livesession_detail' session.id %}" class="btn btn-outline-primary btn-sm">Back</a>
+      <a href="{% url 'livesession_play' session.id %}" class="btn btn-outline-secondary btn-sm">Refresh</a>
+    </div>
+
+    <noscript><div class="alert alert-warning mt-3">Enable JavaScript for real-time start.</div></noscript>
+
+    <script>
+      (function(){
+        const wsScheme = (location.protocol === "https:") ? "wss" : "ws";
+        const socket = new WebSocket(wsScheme + "://" + location.host + "/ws/live/{{ session.id }}/");
+        socket.onmessage = (e)=>{
+          const msg = JSON.parse(e.data || "{}");
+          if(msg.type === "event" && (msg.kind === "started" || msg.kind === "question_changed")){
+            location.reload();
+          }
+        };
+      })();
+    </script>
+
+  {% elif state == "ended" %}
+    <h1 class="h5 mb-3">Session Ended — Leaderboard</h1>
+
+    {% if leaderboard %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Rank</th><th>Name</th><th>Score</th></tr></thead>
+          <tbody>
+            {% for row in leaderboard %}
+            <tr>
+              <td>{{ row.rank }}</td>
+              <td>{{ row.participant.user.get_full_name|default:row.participant.user.username }}</td>
+              <td>{{ row.score }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-muted">No participants.</div>
+    {% endif %}
+
+    <div class="d-flex gap-2 mt-3">
+      <a href="{% url 'livesession_detail' session.id %}" class="btn btn-outline-secondary btn-sm">Back</a>
+    </div>
+
+    <script>
+      (function(){
+        const wsScheme = (location.protocol === "https:") ? "wss" : "ws";
+        const socket = new WebSocket(wsScheme + "://" + location.host + "/ws/live/{{ session.id }}/");
+        socket.onmessage = (e)=>{
+          const msg = JSON.parse(e.data || "{}");
+          if(msg.type === "event" && msg.kind === "question_changed"){
+            location.reload();
+          }
+          if((msg.type === "update" && msg.ended) || msg.kind === "ended"){
+            location.reload();
+          }
+        };
+      })();
+    </script>
+
+  {% elif state == "playing" %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h1 class="h5 mb-0">Question {{ idx|add:1 }} / {{ total }}</h1>
+      <div>
+        {% if is_host %}
+          <form method="post" class="d-inline" id="fallback-next-form">
+            {% csrf_token %}
+            <button class="btn btn-success btn-sm" name="action" value="next">Next</button>
+          </form>
+        {% endif %}
+        <a href="{% url 'livesession_detail' session.id %}" class="btn btn-outline-secondary btn-sm">Session</a>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        {% if question.image %}
+          <div class="mb-3 text-center">
+            <img src="{{ question.image }}" loading="lazy" class="img-fluid rounded border" alt="Question image">
+          </div>
+        {% endif %}
+
+        <h2 class="h6 mb-3">{{ question.question|default:"" }}</h2>
+
+        {% if not is_host %}
+          <div id="answer-state">
+            {% if already_answered %}
+              <div class="alert alert-success py-2 mb-0">Answer submitted. Waiting for next question…</div>
+            {% endif %}
+          </div>
+
+          <form method="post" class="mt-3" id="answer-form" {% if already_answered %}style="display:none"{% endif %}>
+            {% csrf_token %}
+
+            {% if question.question_type|upper == "MSQ" %}
+              {% for ch in question.choices %}
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox"
+                         name="choice" id="c{{ forloop.counter0 }}" value="{{ forloop.counter0 }}"
+                         {% if selected and forloop.counter0 in selected %}checked{% endif %}>
+                  <label class="form-check-label" for="c{{ forloop.counter0 }}">{{ ch.text }}</label>
+                </div>
+              {% endfor %}
+            {% else %}
+              {% for ch in question.choices %}
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="radio"
+                         name="choice" id="r{{ forloop.counter0 }}" value="{{ forloop.counter0 }}"
+                         {% if selected and forloop.counter0 in selected %}checked{% endif %}>
+                  <label class="form-check-label" for="r{{ forloop.counter0 }}">{{ ch.text }}</label>
+                </div>
+              {% endfor %}
+            {% endif %}
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm mt-2" name="action" value="answer">Submit</button>
+              <span class="small text-muted mt-3" id="submit-hint" style="display:none;">Submitting…</span>
+            </div>
+          </form>
+        {% else %}
+          <div class="alert alert-info py-2">You are the host. Use “Next” to advance.</div>
+          <ul class="mb-0">
+            {% for ch in question.choices %}
+              <li>{{ ch.text }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="text-muted small">Session ID: {{ session.id }}</div>
+
+    <noscript>
+      <div class="alert alert-warning mt-3">Enable JavaScript for live updates (no page reloads).</div>
+    </noscript>
+
+    <script>
+      (function(){
+        const sessionId = {{ session.id }};
+        const isHost = {{ is_host|yesno:"true,false" }};
+        const wsScheme = (location.protocol === "https:") ? "wss" : "ws";
+        const socket = new WebSocket(wsScheme + "://" + location.host + "/ws/live/" + sessionId + "/");
+
+        const form = document.getElementById("answer-form");
+        const stateBox = document.getElementById("answer-state");
+        const submitHint = document.getElementById("submit-hint");
+        const fallbackNextForm = document.getElementById("fallback-next-form");
+
+        // Host: send NEXT via WS, fallback to POST if WS closed
+        if (isHost && fallbackNextForm){
+          fallbackNextForm.addEventListener("submit", function(ev){
+            if(socket.readyState === WebSocket.OPEN){
+              ev.preventDefault();
+              socket.send(JSON.stringify({action:"next"}));
+            }
+          });
+        }
+
+        // Participant: send ANSWER via WS to avoid page refresh
+        if(form){
+          form.addEventListener("submit", function(ev){
+            ev.preventDefault();
+            const inputs = form.querySelectorAll('input[name="choice"]');
+            const sel = [];
+            inputs.forEach(i=>{
+              if ((i.type === "checkbox" && i.checked) || (i.type === "radio" && i.checked)){
+                sel.push(parseInt(i.value, 10));
+              }
+            });
+            if(!sel.length){
+              // Allow empty selection? You can guard here if needed.
+            }
+            if(socket.readyState === WebSocket.OPEN){
+              submitHint && (submitHint.style.display = "");
+              socket.send(JSON.stringify({action:"answer", selected: sel}));
+            }else{
+              // Fallback to normal POST (page will reload)
+              form.submit();
+            }
+          });
+        }
+
+        socket.onmessage = (e)=>{
+          const msg = JSON.parse(e.data || "{}");
+
+          // Host moved to next / session ended / started elsewhere
+          if(msg.type === "event"){
+            if(msg.kind === "question_changed" || msg.kind === "started" || msg.kind === "ended"){
+              location.reload();
+            }
+          }
+
+          // Participant ACK for answer
+          if(msg.type === "ack" && msg.action === "answer"){
+            if(stateBox){
+              stateBox.innerHTML = '<div class="alert alert-success py-2 mb-0">Answer submitted. Waiting for next question…</div>';
+            }
+            if(form){ form.style.display = "none"; }
+          }
+
+          // Generic update that indicates session ended or index changed
+          if(msg.type === "update"){
+            if(msg.ended || (typeof msg.current_index === "number")){
+              location.reload();
+            }
+          }
+        };
+      })();
+    </script>
+
+  {% endif %}
+</div>
+{% endblock %}

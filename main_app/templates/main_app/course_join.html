@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 480px;">
+  <h1 class="h5 mb-3">Join a Course</h1>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="mb-3">
+      <label class="form-label">Join Code</label>
+      {{ form.join_code }}
+      {{ form.join_code.errors }}
+    </div>
+    <button class="btn btn-success" type="submit">Join</button>
+    <a href="{% url 'course_list' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+  </form>
+</div>
+{% endblock %}

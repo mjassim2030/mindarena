@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 560px;">
+  <h1 class="h5 mb-3">Join Live Session</h1>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  {% if waiting and session %}
+    <div class="alert alert-info">
+      You're in the lobby for session #{{ session.id }} ({{ session.quiz.quiz_title }}).
+      Please wait for the host to start or admit you.
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+      <a href="{% url 'livesession_detail' session.id %}" class="btn btn-outline-secondary btn-sm">Session</a>
+      <a href="{% url 'livesession_play' session.id %}" class="btn btn-outline-primary btn-sm">Open Play</a>
+    </div>
+
+    <noscript><div class="alert alert-warning">Enable JavaScript for live updates.</div></noscript>
+
+    <script>
+      (function () {
+        var playUrl   = "{% url 'livesession_play' session.id %}";
+        var statusUrl = "{% url 'livesession_status' session.id %}";
+        var wsScheme  = (location.protocol === "https:") ? "wss" : "ws";
+        var wsUrl     = wsScheme + "://" + location.host + "/ws/live/{{ session.id }}/";
+        var currentUserId = {% if request.user.is_authenticated %}{{ request.user.id }}{% else %}null{% endif %};
+
+        function connect() {
+          var socket = new WebSocket(wsUrl);
+
+          socket.onopen = function () {
+            // Tell server we’re in the lobby so host sees us without refresh
+            try { socket.send(JSON.stringify({ action: "join_lobby" })); } catch (_){}
+          };
+
+          socket.onmessage = function (e) {
+            try {
+              var msg = JSON.parse(e.data || "{}");
+
+              // Server-driven redirects
+              if (msg.type === "event") {
+                if (msg.kind === "started") {
+                  // session has started → go to play
+                  window.location = playUrl;
+                  return;
+                }
+                if (msg.kind === "admitted") {
+                  // Only redirect if THIS user was admitted
+                  if (currentUserId && msg.user_id === currentUserId) {
+                    window.location = playUrl;
+                    return;
+                  }
+                }
+                if (msg.kind === "ended") {
+                  window.location = playUrl;
+                  return;
+                }
+              }
+
+              if (msg.type === "update") {
+                if (msg.started && !msg.ended) {
+                  window.location = playUrl;
+                  return;
+                }
+              }
+            } catch (_){}
+          };
+
+          // Optional: auto-reconnect if WS drops (polling still runs as fallback)
+          socket.onclose = function () {
+            setTimeout(connect, 3000);
+          };
+        }
+
+        connect();
+
+        // Fallback polling (if WS blocked or reconnecting)
+        setInterval(function(){
+          fetch(statusUrl, { credentials: "same-origin" })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+              if (d.started && !d.ended) {
+                window.location = playUrl;
+              }
+            })
+            .catch(function(){});
+        }, 4000);
+      })();
+    </script>
+
+  {% else %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Join code</label>
+        <input type="text" name="join_code" class="form-control" maxlength="12" required autofocus>
+        <div class="form-text">Ask your teacher for the session code.</div>
+      </div>
+      <button class="btn btn-success" type="submit">Join</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

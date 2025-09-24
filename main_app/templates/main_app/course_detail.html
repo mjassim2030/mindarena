@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 960px;" data-role="{{ role }}">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h5 mb-1">{{ course.course_name }}</h1>
+      <div class="text-muted">
+        Institute: {{ course.organization.name }} &middot;
+        Teacher: {{ course.teacher.get_full_name|default:course.teacher.username }} &middot;
+        Subject: {{ course.get_subject_category_display }}
+      </div>
+    </div>
+    <div>
+      <a href="{% url 'course_list' %}" class="btn btn-outline-secondary btn-sm">Back to Courses</a>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <p class="mb-0 text-muted small">
+        Course ID: {{ course.id }}
+        {% if role in "teacher admin manager" or user.is_superuser %}
+          &middot; Join code: <code>{{ course.join_code }}</code>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h6 mb-0">Ongoing Live Sessions</h2>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th style="width:8%">ID</th>
+          <th>Quiz</th>
+          <th style="width:20%">Host</th>
+          <th style="width:22%">Started</th>
+          <th class="text-end" style="width:18%">Action</th>
+        </tr>
+      </thead>
+      <tbody id="live-sessions-body">
+        {% if ongoing_sessions %}
+          {% for s in ongoing_sessions %}
+          <tr data-id="{{ s.id }}">
+            <td>#{{ s.id }}</td>
+            <td>{{ s.quiz.quiz_title }}</td>
+            <td>{{ s.host.get_full_name|default:s.host.username }}</td>
+            <td>{% if s.started_at %}{{ s.started_at|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+            <td class="text-end">
+              {% if role == "student" or role == "parents" %}
+                <form method="post" action="{% url 'livesession_join' %}" class="d-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="join_code" value="{{ s.details.join_code }}">
+                  <button class="btn btn-success btn-sm" type="submit">Join</button>
+                </form>
+              {% else %}
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'livesession_detail' s.id %}">View</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr data-empty="1" class="text-muted">
+            <td colspan="5" class="p-3">No live sessions are currently running for this course.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Hidden template we’ll clone for student/parent “Join” forms so CSRF is present #}
+  <template id="joinFormTpl">
+    <form method="post" action="{% url 'livesession_join' %}" class="d-inline">
+      {% csrf_token %}
+      <input type="hidden" name="join_code" value="__CODE__">
+      <button class="btn btn-success btn-sm" type="submit">Join</button>
+    </form>
+  </template>
+
+    <hr class="my-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h6 mb-0">Quizzes & Their Live Sessions (static)</h2>
+  </div>
+
+  {% if quizzes %}
+    {% for q in quizzes %}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div><strong>{{ q.quiz_title }}</strong></div>
+          <div class="text-muted small">
+            {% with n=q.sessions_for_list|length %}
+              {{ n }} session{{ n|pluralize }}
+            {% endwith %}
+          </div>
+        </div>
+
+        <div class="card-body p-0">
+          {% if q.sessions_for_list %}
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th style="width:10%">Session</th>
+                    <th>Host</th>
+                    <th style="width:22%">Started</th>
+                    <th style="width:18%">Status</th>
+                    <th class="text-end" style="width:18%">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in q.sessions_for_list %}
+                  <tr>
+                    <td>#{{ s.id }}</td>
+                    <td>{{ s.host.get_full_name|default:s.host.username }}</td>
+                    <td>{% if s.started_at %}{{ s.started_at|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+                    <td>
+                      {% if s.ended_at %}
+                        <span class="badge text-bg-secondary">Ended</span>
+                      {% elif s.started_at %}
+                        <span class="badge text-bg-success">Ongoing</span>
+                      {% else %}
+                        <span class="badge text-bg-warning">Not started</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      {% if role == "student" or role == "parents" %}
+                        {% if s.ended_at %}
+                          <span class="text-muted">—</span>
+                        {% else %}
+                          <form method="post" action="{% url 'livesession_join' %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="join_code" value="{{ s.details.join_code }}">
+                            <button class="btn btn-success btn-sm" type="submit">Join</button>
+                          </form>
+                        {% endif %}
+                      {% else %}
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'livesession_detail' s.id %}">
+                          View
+                        </a>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-3 text-muted">No live sessions for this quiz.</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border">No quizzes in this course yet.</div>
+  {% endif %}
+
+</div>
+
+<script>
+(function(){
+  const courseId = {{ course.id }};
+  const role = (document.querySelector('[data-role]')?.dataset.role || "{{ role }}").toLowerCase();
+  const tbody = document.getElementById("live-sessions-body");
+  const wsScheme = (location.protocol === "https:") ? "wss" : "ws";
+  const ws = new WebSocket(`${wsScheme}://${location.host}/ws/courses/${courseId}/`);
+
+  function fmt(iso){
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function emptyRowIfNeeded(){
+    if (!tbody.querySelector("tr")) {
+      const tr = document.createElement("tr");
+      tr.dataset.empty = "1";
+      tr.className = "text-muted";
+      tr.innerHTML = `<td colspan="5" class="p-3">No live sessions are currently running for this course.</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function rowHtml(s){
+    const actionHtml = (() => {
+      if (role === "student" || role === "parents") {
+        const tpl = document.getElementById("joinFormTpl").innerHTML.trim();
+        return tpl.replace('__CODE__', s.join_code || "");
+      } else {
+        return `<a class="btn btn-outline-primary btn-sm" href="/live/session/${s.id}/">View</a>`;
+      }
+    })();
+
+    return `
+      <td>#${s.id}</td>
+      <td>${(s.quiz_title || "").replace(/</g,"&lt;")}</td>
+      <td>${(s.host_name || "—").replace(/</g,"&lt;")}</td>
+      <td>${fmt(s.started_at)}</td>
+      <td class="text-end">${actionHtml}</td>
+    `;
+  }
+
+  function upsertRow(s){
+    // remove placeholder row if present
+    tbody.querySelectorAll('tr[data-empty="1"]').forEach(n => n.remove());
+
+    let tr = tbody.querySelector(`tr[data-id="${s.id}"]`);
+    if (!tr) {
+      tr = document.createElement("tr");
+      tr.dataset.id = s.id;
+      tr.innerHTML = rowHtml(s);
+      tbody.prepend(tr);
+    } else {
+      tr.innerHTML = rowHtml(s);
+    }
+  }
+
+  function removeRow(id){
+    const tr = tbody.querySelector(`tr[data-id="${id}"]`);
+    if (tr) tr.remove();
+    emptyRowIfNeeded();
+  }
+
+  ws.addEventListener("message", (ev) => {
+    let data;
+    try { data = JSON.parse(ev.data); } catch { return; }
+
+    if (data.type === "snapshot" && Array.isArray(data.sessions)) {
+      tbody.innerHTML = "";
+      if (!data.sessions.length) {
+        emptyRowIfNeeded();
+        return;
+      }
+      // newest first
+      data.sessions.sort((a,b) => b.id - a.id).forEach(s => {
+        const tr = document.createElement("tr");
+        tr.dataset.id = s.id;
+        tr.innerHTML = rowHtml(s);
+        tbody.appendChild(tr);
+      });
+      return;
+    }
+
+    if (data.type === "update") {
+      const op = data.op;
+      const s = data.session || {};
+      if (op === "update") {
+        upsertRow(s);
+      } else if (op === "remove") {
+        removeRow(s.id);
+      }
+    }
+  });
+
+  ws.addEventListener("close", emptyRowIfNeeded);
+})();
+</script>
+{% endblock %}

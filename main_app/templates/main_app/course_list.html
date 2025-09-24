@@ -1,62 +1,48 @@
-    {% extends "base.html" %}
-    {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h3 m-0">Courses</h1>
-      <a class="btn btn-primary" href="/courses/create/">New Course</a>
-    </div>
-
-    {% if object_list %}
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-<th scope="col">Join Code</th>
-<th scope="col">Org</th>
-<th scope="col">Teacher</th>
-<th scope="col" style="width:180px;">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for obj in object_list %}
-            <tr>
-              <td>{{ obj.name }}</td>
-<td>{{ obj.join_code }}</td>
-<td>{{ obj.org }}</td>
-<td>{{ obj.teacher }}</td>
-<td>
-                <a class="btn btn-outline-secondary btn-sm" href="/courses/{{ obj.id }}/update/">Edit</a>
-                <a class="btn btn-outline-danger btn-sm" href="/courses/{{ obj.id }}/delete/">Delete</a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      {% if is_paginated %}
-      <nav aria-label="Courses pagination">
-        <ul class="pagination pagination-sm">
-          {% if page_obj.has_previous %}
-          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
-          {% else %}
-          <li class="page-item disabled"><span class="page-link">Previous</span></li>
-          {% endif %}
-
-          <li class="page-item disabled">
-            <span class="page-link">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-          </li>
-
-          {% if page_obj.has_next %}
-          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
-          {% else %}
-          <li class="page-item disabled"><span class="page-link">Next</span></li>
-          {% endif %}
-        </ul>
-      </nav>
+{# templates/courses/course_list.html #}
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h5 mb-0">Courses{% if org %} — {{ org.name }}{% endif %}</h1>
+    <div class="d-flex gap-2">
+      {% if role == "student" %}
+        <a class="btn btn-success btn-sm" href="{% url 'course_join' %}">Join by Code</a>
       {% endif %}
+      {% if can_create %}
+        <a class="btn btn-primary btn-sm" href="{% url 'course_create' %}">Create Course</a>
+      {% endif %}
+    </div>
+  </div>
 
-    {% else %}
-      <div class="alert alert-info">No courses yet.</div>
-    {% endif %}
-    {% endblock %}
+  {% if courses %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Course</th>
+          <th>Teacher</th>
+          <th>Subject</th>
+          <th>Enrolled</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in courses %}
+        <tr>
+          <td>{{ c.course_name }}</td>
+          <td>{{ c.teacher.get_full_name|default:c.teacher.username }}</td>
+          <td>{{ c.get_subject_category_display }}</td>
+          <td>{{ c.enrolled_students|length }}</td>
+          <td class="text-end">
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'course_detail' c.id %}">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="text-muted">No courses yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

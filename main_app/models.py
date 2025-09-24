@@ -1,324 +1,184 @@
 from django.db import models
-from django.contrib.auth.models import User
-from django.utils import timezone
-from django.db.models import Q
-
-#  Choices Enums
-ROLES = (
-    ('TEACHER','Teacher'),
-    ('STUDENT','Student'),
-    ('PARENT','Parent'),
-    ('PARTNER','Partner'),
-    ('ADMIN','Admin'),
-)
-
-ORG_ROLES = (
-    ('OWNER','Owner'),
-    ('ADMIN','Admin'),
-    ('TEACHER','Teacher'),
-    ('STUDENT','Student'),
-)
+from django.conf import settings
+from .constants import ROLE_CHOICES, DEFAULT_ROLE, SUBJECT_CATEGORIES
+import secrets
+import string
 
 QUESTION_TYPES = (
-    ('MCQ','Multiple Choice'),
-    ('MSQ','Multiple Select'),
-    ('TF','True/False'),
-    ('NUMERIC','Numeric'),
-    ('TEXT','Short Text'),
-    ('ORDER','Ordering'),
-    ('MATCH','Matching'),
-    ('IMAGE_HOTSPOT','Image Hotspot'),
+    ('MCQ', 'Multiple Choice'),
+    ('MSQ', 'Multiple Select'),
+    ('TF', 'True/False'),
+    ('NUMERIC', 'Numeric'),
+    ('TEXT', 'Short Text'),
+    ('ORDER', 'Ordering'),
+    ('MATCH', 'Matching'),
+    ('IMAGE_HOTSPOT', 'Image Hotspot'),
 )
-
-ATTEMPT_STATUSES = (
-    ('IN_PROGRESS','In progress'),
-    ('SUBMITTED','Submitted'),
-    ('GRADED','Graded'),
-)
-
-LIVE_MODES = (
-    ('CLASSIC','Classic'),
-    ('TEAM','Team'),
-    ('POWERUPS','Power-ups'),
-)
-
-LIVE_EVENT_TYPES = (
-    ('JOIN','Join'),
-    ('START','Start'),
-    ('QUESTION','Question'),
-    ('ANSWER','Answer'),
-    ('SCORE','Score'),
-    ('LEADERBOARD','Leaderboard'),
-    ('END','End'),
-)
-
-LISTING_STATUSES = (
-    ('ACTIVE','Active'),
-    ('PAUSED','Paused'),
-    ('RETIRED','Retired'),
-)
-
-PAYOUT_STATUSES = (
-    ('PENDING','Pending'),
-    ('PAID','Paid'),
-    ('FAILED','Failed'),
-)
-
-# ---------- Orgs ----------
 
 class Organization(models.Model):
-    name = models.TextField()
+    name = models.CharField("Organization name", max_length=255, unique=True)
+    country = models.CharField("Country (ISO-3166 alpha-2 or name)", max_length=64)
+    logo_url = models.URLField("Logo URL", blank=True)
+    website_url = models.URLField("Website URL", blank=True)
+    linkedin_url = models.URLField("LinkedIn URL", blank=True)
+    twitter_url = models.URLField("Twitter/X URL", blank=True)
+    facebook_url = models.URLField("Facebook URL", blank=True)
+    instagram_url = models.URLField("Instagram URL", blank=True)
+    youtube_url = models.URLField("YouTube URL", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
         return self.name
 
 
 class OrgMembership(models.Model):
-    org = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    org_role = models.CharField(max_length=12, choices=ORG_ROLES, default=ORG_ROLES[3][0])
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="org_memberships",
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=DEFAULT_ROLE)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("org","user")
+        unique_together = ("organization", "user")
+        indexes = [
+            models.Index(fields=["organization", "user"]),
+            models.Index(fields=["role"]),
+        ]
+        ordering = ["organization_id", "user_id"]
 
+    def __str__(self) -> str:
+        return f"{self.user} @ {self.organization} ({self.get_role_display()})"
 
-# ---------- Courses & Enrollment ----------
 
 class Course(models.Model):
-    org = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
-    teacher = models.ForeignKey(User, on_delete=models.PROTECT)
-    name = models.TextField()
-    join_code = models.CharField(max_length=6, unique=True)
-
-    def __str__(self):
-        return f"{self.name} ({self.join_code})"
-
-
-class CourseMember(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="courses")
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="teaching_courses")
+    course_name = models.CharField(max_length=255)
+    join_code = models.CharField(max_length=32, unique=True)
+    subject_category = models.CharField(max_length=32, choices=SUBJECT_CATEGORIES)
+    enrolled_students = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("course","user")
+        ordering = ["course_name"]
+        indexes = [
+            models.Index(fields=["organization"]),
+            models.Index(fields=["teacher"]),
+            models.Index(fields=["join_code"]),
+        ]
+
+    def __str__(self):
+        return f"{self.course_name} ({self.organization.name})"
 
 
-# ---------- Quizzes & Content ----------
+def default_quiz_content():
+    return []
+
 
 class Quiz(models.Model):
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
-    title = models.TextField()
-    description = models.TextField(default="", blank=True)
-    is_public = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.title
-
-
-class QuizVersion(models.Model):
-    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
-    version_no = models.IntegerField()
-    notes = models.TextField(default="", blank=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="quizzes")
+    quiz_title = models.CharField(max_length=255)
+    content = models.JSONField(default=default_quiz_content, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("quiz","version_no")
-
-
-class Question(models.Model):
-    quiz_version = models.ForeignKey(QuizVersion, on_delete=models.CASCADE)
-    type = models.CharField(max_length=20, choices=QUESTION_TYPES)
-    prompt = models.TextField()
-    meta = models.JSONField(default=dict, blank=True)
-    order_index = models.IntegerField(default=0)
-
-
-class Choice(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    label = models.TextField()
-    is_correct = models.BooleanField(default=False)
-    order_index = models.IntegerField(default=0)
-
-
-class QuestionMedia(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    kind = models.CharField(max_length=16, choices=[('IMAGE','Image'),('AUDIO','Audio'),('VIDEO','Video')])
-    url = models.TextField()
-    attrib = models.JSONField(default=dict, blank=True)
-
-
-class ChoiceMedia(models.Model):
-    choice = models.ForeignKey(Choice, on_delete=models.CASCADE)
-    kind = models.CharField(max_length=16, choices=[('IMAGE','Image'),('AUDIO','Audio'),('VIDEO','Video')])
-    url = models.TextField()
-
-
-class Tag(models.Model):
-    name = models.TextField(unique=True)
-
-    def __str__(self):
-        return self.name
-
-
-class QuizTag(models.Model):
-    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ("quiz","tag")
-
-
-# ---------- Assignments & Attempts ----------
-
-class Assignment(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    quiz = models.ForeignKey(Quiz, on_delete=models.PROTECT)
-    open_at = models.DateTimeField()
-    due_at = models.DateTimeField(null=True, blank=True)
-    settings = models.JSONField(default=dict, blank=True)
-
-class Attempt(models.Model):
-    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    started_at = models.DateTimeField(default=timezone.now)
-    finished_at = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=16, choices=ATTEMPT_STATUSES, default='IN_PROGRESS')
-
-    class Meta:
+        ordering = ["quiz_title"]
         indexes = [
-            models.Index(fields=("assignment","user")),
+            models.Index(fields=["course"]),
+            models.Index(fields=["quiz_title"]),
         ]
 
-
-class AttemptItem(models.Model):
-    attempt = models.ForeignKey(Attempt, on_delete=models.CASCADE)
-    question = models.ForeignKey(Question, on_delete=models.RESTRICT)
-    answer_payload = models.JSONField()
-    time_taken_ms = models.IntegerField(default=0)
-    is_correct = models.BooleanField()
-    points_awarded = models.IntegerField(default=0)
-    order_index = models.IntegerField(default=0)
+    def __str__(self) -> str:
+        return f"{self.quiz_title} — {self.course.course_name}"
 
 
-class AttemptScore(models.Model):
-    attempt = models.OneToOneField(Attempt, on_delete=models.CASCADE)
-    total_points = models.IntegerField()
-    max_points = models.IntegerField()
-    percent = models.DecimalField(max_digits=5, decimal_places=2)
-    breakdown = models.JSONField(default=dict, blank=True)
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(check=Q(percent__gte=0) & Q(percent__lte=100), name="attempt_score_percent_0_100"),
-        ]
+def _short_code(length=6):
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
-# ---------- Live Sessions ----------
+def default_session_details():
+    return {"join_code": _short_code(), "lobby": []}
+
+
+def default_answers():
+    return []
+
 
 class LiveSession(models.Model):
-    quiz_version = models.ForeignKey(QuizVersion, on_delete=models.PROTECT)
-    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True)
-    host = models.ForeignKey(User, on_delete=models.CASCADE)
-    mode = models.CharField(max_length=12, choices=LIVE_MODES, default='CLASSIC')
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="live_sessions")
+    host = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="hosted_sessions")
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
-    settings = models.JSONField(default=dict, blank=True)
+    details = models.JSONField(default=default_session_details, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["quiz"]),
+            models.Index(fields=["host"]),
+            models.Index(fields=["started_at"]),
+            models.Index(fields=["ended_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"LiveSession #{self.pk} — {self.quiz.quiz_title}"
+
+    @property
+    def join_code(self) -> str:
+        return (self.details or {}).get("join_code", "")
+
+    def regenerate_join_code(self, length=6, save=True):
+        d = dict(self.details or {})
+        d["join_code"] = _short_code(length)
+        self.details = d
+        if save:
+            self.save(update_fields=["details"])
 
 
 class LiveParticipant(models.Model):
-    session = models.ForeignKey(LiveSession, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    nickname = models.TextField()
-    joined_at = models.DateTimeField(default=timezone.now)
+    livesession = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name="participants")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="live_participations")
+    joined_at = models.DateTimeField(auto_now_add=True)
     left_at = models.DateTimeField(null=True, blank=True)
+    answer_questions = models.JSONField(default=default_answers, blank=True)
 
     class Meta:
-        unique_together = ("session","nickname")
-
-
-class LiveEvent(models.Model):
-    session = models.ForeignKey(LiveSession, on_delete=models.CASCADE)
-    type = models.CharField(max_length=16, choices=LIVE_EVENT_TYPES)
-    ts = models.DateTimeField(default=timezone.now)
-    payload = models.JSONField(default=dict, blank=True)
-
-    class Meta:
+        unique_together = ("livesession", "user")
         indexes = [
-            models.Index(fields=("session","ts")),
+            models.Index(fields=["livesession"]),
+            models.Index(fields=["user"]),
         ]
+        ordering = ["livesession_id", "user_id"]
+
+    def __str__(self) -> str:
+        return f"{self.user} in session {self.livesession_id}"
 
 
 class LiveLeaderboard(models.Model):
-    session = models.ForeignKey(LiveSession, on_delete=models.CASCADE)
-    participant = models.ForeignKey(LiveParticipant, on_delete=models.CASCADE)
-    rank = models.IntegerField()
-    score = models.IntegerField()
-    streak = models.IntegerField(default=0)
-
-
-# ---------- Gamification ----------
-
-class XPTransaction(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    delta = models.IntegerField()
-    reason = models.TextField()
-    related_id = models.CharField(max_length=64, null=True, blank=True)
-
-
-class Badge(models.Model):
-    code = models.TextField(unique=True)
-    name = models.TextField()
-    description = models.TextField(default="", blank=True)
-    icon_url = models.TextField()
-    criteria = models.JSONField(default=dict, blank=True)
-
-    def __str__(self):
-        return self.name
-
-
-class UserBadge(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    badge = models.ForeignKey(Badge, on_delete=models.CASCADE)
-    earned_at = models.DateTimeField(default=timezone.now)
+    livesession = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name="leaderboard_entries")
+    participant = models.OneToOneField(LiveParticipant, on_delete=models.CASCADE, related_name="leaderboard_row")
+    rank = models.PositiveIntegerField(default=0)
+    score = models.IntegerField(default=0)
 
     class Meta:
-        unique_together = ("user","badge")
-
-
-# ---------- Marketplace & Wallets ----------
-
-class Wallet(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    currency = models.CharField(max_length=8, default="USD")
-
-
-class Listing(models.Model):
-    quiz = models.ForeignKey(Quiz, on_delete=models.PROTECT)
-    seller = models.ForeignKey(User, on_delete=models.PROTECT)
-    price = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=8, default="USD")
-    status = models.CharField(max_length=8, choices=LISTING_STATUSES, default='ACTIVE')
-
-
-class Purchase(models.Model):
-    listing = models.ForeignKey(Listing, on_delete=models.PROTECT)
-    buyer = models.ForeignKey(User, on_delete=models.PROTECT)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=8, default="USD")
-    purchased_at = models.DateTimeField(default=timezone.now)
-
-
-class Payout(models.Model):
-    wallet = models.ForeignKey(Wallet, on_delete=models.PROTECT)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=8, default="USD")
-    provider_ref = models.TextField()
-    requested_at = models.DateTimeField(default=timezone.now)
-    settled_at = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=8, choices=PAYOUT_STATUSES, default='PENDING')
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(check=Q(amount__gt=0), name="payout_amount_gt_0"),
+        unique_together = ("livesession", "participant")
+        indexes = [
+            models.Index(fields=["livesession", "rank"]),
+            models.Index(fields=["livesession", "score"]),
         ]
+        ordering = ["livesession_id", "rank"]
 
-
+    def __str__(self) -> str:
+        return f"Rank {self.rank} — {self.participant}"

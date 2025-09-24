@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 900px;">
+  <h1 class="h5 mb-3">Live Session #{{ session.id }}</h1>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div><strong>Quiz:</strong> {{ session.quiz.quiz_title }}</div>
+      <div><strong>Course:</strong> {{ session.quiz.course.course_name }}</div>
+      <div><strong>Join code:</strong> <code>{{ session.details.join_code|default:"—" }}</code></div>
+      <div class="mt-2">
+        <span class="badge text-bg-secondary">Host: {{ session.host.get_full_name|default:session.host.username }}</span>
+        <span id="badge-started" class="badge {% if session.started_at %}text-bg-success{% else %}text-bg-secondary{% endif %} ms-1">
+          {% if session.started_at %}Started{% else %}Not started{% endif %}
+        </span>
+        {% if session.ended_at %}
+          <span id="badge-ended" class="badge text-bg-danger ms-1">Ended</span>
+        {% else %}
+          <span id="badge-ended" class="badge text-bg-secondary ms-1 d-none">Ended</span>
+        {% endif %}
+      </div>
+
+      <div class="mt-3 d-flex flex-wrap gap-2">
+        {% if is_host %}
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button name="action" value="regenerate_code" class="btn btn-outline-secondary btn-sm" {% if session.started_at %}disabled{% endif %}>
+              Regenerate Code
+            </button>
+          </form>
+          <button id="btn-start" class="btn btn-success btn-sm" {% if session.started_at %}disabled{% endif %}>
+            Start Session
+          </button>
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button name="action" value="end" class="btn btn-danger btn-sm" {% if session.ended_at %}disabled{% endif %}>
+              End Session
+            </button>
+          </form>
+          <a href="{% url 'livesession_play' session.id %}" class="btn btn-outline-primary btn-sm">Open Play</a>
+        {% else %}
+          <a href="{% url 'livesession_play' session.id %}" class="btn btn-outline-primary btn-sm">Open Play</a>
+        {% endif %}
+
+        {# NEW: Review answers button (shown when ended; toggled live via JS) #}
+        <a id="btn-review"
+           href="{% url 'livesession_answers' session.id %}"
+           class="btn btn-outline-secondary btn-sm {% if not session.ended_at %}d-none{% endif %}">
+          Review answers
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header">Lobby</div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Name</th><th>Email</th><th class="text-end">Action</th></tr></thead>
+            <tbody id="lobby-body">
+              {% if lobby_users %}
+                {% for u in lobby_users %}
+                <tr data-user-id="{{ u.id }}">
+                  <td>{{ u.get_full_name|default:u.username }}</td>
+                  <td>{{ u.email|default:"—" }}</td>
+                  <td class="text-end">
+                    {% if is_host and not session.started_at and not session.ended_at %}
+                      <button class="btn btn-outline-primary btn-sm js-admit" data-user-id="{{ u.id }}">Admit</button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr class="text-muted"><td colspan="3" class="p-3">No one in lobby</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header">Participants</div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Name</th><th>Email</th></tr></thead>
+            <tbody id="participants-body">
+              {% if participants %}
+                {% for p in participants %}
+                  {% if p.user_id != session.host_id %}
+                  <tr data-user-id="{{ p.user_id }}">
+                    <td>{{ p.user.get_full_name|default:p.user.username }}</td>
+                    <td>{{ p.user.email|default:"—" }}</td>
+                  </tr>
+                  {% endif %}
+                {% endfor %}
+              {% else %}
+                <tr class="text-muted"><td colspan="2" class="p-3">No participants</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard (updates when session ends) -->
+  <div class="card mt-3">
+    <div class="card-header">
+      <span id="leaderboard-title">Leaderboard{% if session.ended_at %} (Final){% else %} (Live){% endif %}</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead>
+            <tr><th style="width:10%">Rank</th><th>Name</th><th style="width:15%">Score</th></tr>
+          </thead>
+          <tbody id="leaderboard-body">
+            {% if leaderboard %}
+              {% for row in leaderboard %}
+              <tr>
+                <td>{{ row.rank }}</td>
+                <td>{{ row.participant.user.get_full_name|default:row.participant.user.username }}</td>
+                <td>{{ row.score }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr class="text-muted"><td colspan="3" class="p-3">No scores yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const sessionId = {{ session.id }};
+  const isHost = {{ is_host|yesno:"true,false" }};
+  const hostId = {{ session.host_id }};
+  const playUrl = "{% url 'livesession_play' session.id %}";
+
+  const scheme = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${scheme}://${location.host}/ws/live/${sessionId}/`);
+
+  // DOM refs
+  const lobbyBody = document.getElementById("lobby-body");
+  const participantsBody = document.getElementById("participants-body");
+  const badgeStarted = document.getElementById("badge-started");
+  const badgeEnded = document.getElementById("badge-ended");
+  const lbTitle = document.getElementById("leaderboard-title");
+  const lbBody = document.getElementById("leaderboard-body");
+  const btnReview = document.getElementById("btn-review");
+
+  function _getFirst(u){ return (u.first_name || u["participant__user__first_name"] || "").trim(); }
+  function _getLast(u){ return (u.last_name || u["participant__user__last_name"] || "").trim(); }
+  function _getUser(u){ return (u.username || u["participant__user__username"] || "").trim(); }
+  function nameFor(u){
+    const fn=_getFirst(u), ln=_getLast(u), full=`${fn} ${ln}`.trim();
+    return full || _getUser(u) || "—";
+  }
+
+  function renderLobby(lobbyUsers){
+    lobbyBody.innerHTML="";
+    if(!lobbyUsers || !lobbyUsers.length){
+      lobbyBody.innerHTML=`<tr class="text-muted"><td colspan="3" class="p-3">No one in lobby</td></tr>`;
+      return;
+    }
+    lobbyUsers.forEach(u=>{
+      const tr=document.createElement("tr");
+      tr.dataset.userId=u.id;
+      tr.innerHTML=`
+        <td>${nameFor(u)}</td>
+        <td>${u.email || "—"}</td>
+        <td class="text-end">
+          ${isHost ? `<button class="btn btn-outline-primary btn-sm js-admit" data-user-id="${u.id}">Admit</button>` : ""}
+        </td>`;
+      lobbyBody.appendChild(tr);
+    });
+  }
+
+  function renderParticipants(participants){
+    participantsBody.innerHTML="";
+    const rows=(participants||[]).filter(p => (p.user_id ?? p.user?.id) !== hostId);
+    if(!rows.length){
+      participantsBody.innerHTML=`<tr class="text-muted"><td colspan="2" class="p-3">No participants</td></tr>`;
+      return;
+    }
+    rows.forEach(p=>{
+      const tr=document.createElement("tr");
+      tr.dataset.userId=p.user_id ?? p.user?.id ?? "";
+      tr.innerHTML=`<td>${nameFor(p)}</td><td>${p.email || "—"}</td>`;
+      participantsBody.appendChild(tr);
+    });
+  }
+
+  function renderLeaderboard(rows){
+    if(!rows || !rows.length){
+      lbBody.innerHTML=`<tr class="text-muted"><td colspan="3" class="p-3">No scores yet.</td></tr>`;
+      return;
+    }
+    lbBody.innerHTML="";
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${r.rank}</td><td>${nameFor(r)}</td><td>${r.score}</td>`;
+      lbBody.appendChild(tr);
+    });
+  }
+
+  function showEndedUI(){
+    badgeEnded.classList.remove("d-none");
+    badgeEnded.classList.add("text-bg-danger");
+    lbTitle.textContent="Leaderboard (Final)";
+    if(btnReview) btnReview.classList.remove("d-none");
+  }
+
+  ws.addEventListener("message", (ev)=>{
+    let data; try{ data=JSON.parse(ev.data); }catch{ return; }
+
+    if(data.type==="snapshot"){
+      if(data.lobby_users) renderLobby(data.lobby_users);
+      if(data.participants) renderParticipants(data.participants);
+      if(data.started){
+        badgeStarted.classList.remove("text-bg-secondary");
+        badgeStarted.classList.add("text-bg-success");
+        badgeStarted.textContent="Started";
+      }
+      if(data.ended){ showEndedUI(); }
+      return;
+    }
+
+    if(data.type==="update"){
+      if(Object.prototype.hasOwnProperty.call(data,"lobby_users")) renderLobby(data.lobby_users);
+      if(Object.prototype.hasOwnProperty.call(data,"participants")) renderParticipants(data.participants);
+      if(data.started){
+        badgeStarted.classList.remove("text-bg-secondary");
+        badgeStarted.classList.add("text-bg-success");
+        badgeStarted.textContent="Started";
+      }
+      if(data.ended){ showEndedUI(); }
+      if(data.leaderboard) renderLeaderboard(data.leaderboard);
+      return;
+    }
+
+    if(data.type==="event"){
+      if(data.kind==="started" && isHost){
+        window.location = playUrl;
+      }
+    }
+  });
+
+  // Host → Start
+  const btnStart=document.getElementById("btn-start");
+  if(btnStart){
+    btnStart.addEventListener("click", ()=>{
+      if(ws.readyState===WebSocket.OPEN){
+        ws.send(JSON.stringify({ action:"start" }));
+      }
+    });
+  }
+
+  // Host → Admit
+  lobbyBody.addEventListener("click",(e)=>{
+    const btn=e.target.closest(".js-admit");
+    if(!btn) return;
+    const uid=parseInt(btn.dataset.userId,10);
+    if(!Number.isFinite(uid)) return;
+    if(ws.readyState===WebSocket.OPEN){
+      ws.send(JSON.stringify({ action:"admit", user_id: uid }));
+    }
+  });
+})();
+</script>
+{% endblock %}

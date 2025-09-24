@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container py-4" style="max-width: 900px;">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h5 mb-0">
+      {% if mode == "edit" %}Edit Question{% else %}Add Question{% endif %}
+      <small class="text-muted d-block">{{ quiz.quiz_title }}</small>
+    </h1>
+    <div>
+      <a href="{% url 'quiz_questions' quiz.id %}" class="btn btn-outline-secondary btn-sm">Back to questions</a>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card">
+    {% csrf_token %}
+    <div class="card-body">
+
+      <!-- Question type selector -->
+      <div class="mb-3">
+        <label class="form-label d-block">Question Type</label>
+
+        <!-- Hidden real field -->
+        {{ form.question_type }}
+
+        <div class="btn-group" role="group" aria-label="Type selector" id="typeButtons">
+          <button type="button" class="btn btn-outline-primary" data-type="MCQ" title="Multiple choice">
+            <!-- icon -->
+            <svg width="18" height="18" viewBox="0 0 24 24" class="me-1"><path fill="currentColor" d="M4 6h16v2H4zM4 11h16v2H4zM4 16h10v2H4z"/></svg>
+            MCQ
+          </button>
+          <button type="button" class="btn btn-outline-primary" data-type="MSQ" title="Multiple select">
+            <svg width="18" height="18" viewBox="0 0 24 24" class="me-1"><path fill="currentColor" d="M3 5h18v2H3zM3 10h18v2H3zM3 15h18v2H3zM3 20h8v2H3z"/></svg>
+            MSQ
+          </button>
+          <button type="button" class="btn btn-outline-primary" data-type="TF" title="True/False">
+            <svg width="18" height="18" viewBox="0 0 24 24" class="me-1"><path fill="currentColor" d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5z"/></svg>
+            True/False
+          </button>
+        </div>
+      </div>
+
+      <!-- Question text -->
+      <div class="mb-3">
+        <label class="form-label">Question</label>
+        {{ form.question }}
+      </div>
+
+      <!-- Image upload + preview -->
+      <div class="mb-3">
+        <label class="form-label d-block">Optional Image</label>
+        <div class="d-flex align-items-start gap-3">
+          {{ form.image }}
+          <img id="imgPreview" class="rounded border d-none" alt="Preview" style="max-height:120px;">
+        </div>
+        <div class="form-text">PNG/JPG up to a few MB.</div>
+      </div>
+
+      <!-- TF radios -->
+      <div id="tfBlock" class="mb-3 d-none">
+        <label class="form-label">Correct answer</label>
+        {{ form.correct_tf }}
+      </div>
+
+      <!-- Choices formset -->
+      <div id="choicesBlock" class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label m-0">Choices</label>
+          <button class="btn btn-sm btn-outline-secondary" id="addChoiceBtn" type="button">+ Add choice row</button>
+        </div>
+
+        {{ formset.management_form }}
+        <div id="choicesRows">
+          {% for f in formset.forms %}
+          <div class="row g-2 align-items-end mb-2 choice-row">
+            <div class="col">
+              {{ f.text.label_tag }}{{ f.text }}
+            </div>
+            <div class="col-auto">
+              <div class="form-check mt-4">
+                {{ f.is_correct }} <label class="form-check-label">Correct</label>
+              </div>
+            </div>
+            <div class="col-auto">
+              {% if formset.can_delete %}
+              <div class="form-check mt-4">
+                {{ f.DELETE }} <label class="form-check-label text-danger">Remove</label>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Save</button>
+        <a class="btn btn-outline-secondary" href="{% url 'quiz_questions' quiz.id %}">Cancel</a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  // Type buttons ↔ hidden input
+  const hidden = document.getElementById("id_question_type");
+  const group = document.getElementById("typeButtons");
+  const tfBlock = document.getElementById("tfBlock");
+  const choicesBlock = document.getElementById("choicesBlock");
+
+  function setType(t){
+    hidden.value = t;
+    group.querySelectorAll("button").forEach(b=>{
+      b.classList.toggle("btn-primary", b.dataset.type===t);
+      b.classList.toggle("btn-outline-primary", b.dataset.type!==t);
+    });
+    const isTF = (t === "TF");
+    tfBlock.classList.toggle("d-none", !isTF);
+    choicesBlock.classList.toggle("d-none", isTF);
+  }
+
+  // initialize default
+  setType(hidden.value || "MCQ");
+
+  group.querySelectorAll("button").forEach(btn=>{
+    btn.addEventListener("click", ()=> setType(btn.dataset.type));
+  });
+
+  // Image preview
+  const fileInput = document.getElementById("id_image");
+  const preview = document.getElementById("imgPreview");
+  if (fileInput){
+    fileInput.accept = "image/*";
+    fileInput.addEventListener("change", e=>{
+      const f = e.target.files && e.target.files[0];
+      if (f){
+        const url = URL.createObjectURL(f);
+        preview.src = url;
+        preview.classList.remove("d-none");
+      } else {
+        preview.src = "";
+        preview.classList.add("d-none");
+      }
+    });
+  }
+
+  // Add choice row (client-side convenience)
+  const addBtn = document.getElementById("addChoiceBtn");
+  const rows = document.getElementById("choicesRows");
+  const totalInput = document.querySelector('[name="form-TOTAL_FORMS"]') || document.querySelector('[name="c-TOTAL_FORMS"]');
+
+  function newRow() {
+    const idx = parseInt(totalInput.value || "0", 10);
+    const html = `
+      <div class="row g-2 align-items-end mb-2 choice-row">
+        <div class="col">
+          <label for="c-${idx}-text">Choice</label>
+          <input type="text" name="c-${idx}-text" class="form-control" id="c-${idx}-text" maxlength="255">
+        </div>
+        <div class="col-auto">
+          <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" name="c-${idx}-is_correct" id="c-${idx}-is_correct">
+            <label class="form-check-label" for="c-${idx}-is_correct">Correct</label>
+          </div>
+        </div>
+      </div>`;
+    rows.insertAdjacentHTML("beforeend", html);
+    totalInput.value = String(idx + 1);
+  }
+
+  if (addBtn && totalInput && rows){
+    addBtn.addEventListener("click", newRow);
+  }
+})();
+</script>
+{% endblock %}

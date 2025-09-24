@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 1000px;">
+  <h1 class="h5 mb-3">
+    Answers — Live Session #{{ session.id }} ({{ session.quiz.quiz_title }})
+  </h1>
+
+  <div class="mb-3 text-muted small">
+    Course: {{ session.quiz.course.course_name }} &middot;
+    Host: {{ session.host.get_full_name|default:session.host.username }} &middot;
+    Ended: {{ session.ended_at|date:"Y-m-d H:i" }}
+  </div>
+
+  {% if per_question %}
+    {% for block in per_question %}
+      {% with q=block.question idx=block.index stats=block.stats rows=block.rows %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="d-flex justify-content-between">
+            <div>
+              <strong>Q{{ idx|add:1 }}.</strong>
+              {{ q.question }}
+              <span class="badge text-bg-secondary ms-2">
+                {{ q.question_type|default:"MCQ" }}
+              </span>
+            </div>
+            <div class="text-muted small">
+              Attempted: {{ stats.attempted }} /
+              Total: {{ rows|length }} &middot;
+              Correct: {{ stats.correct }} &middot;
+              Avg pts: {{ stats.avg_points|floatformat:1 }}
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width:26%">Student</th>
+                  <th>Selected</th>
+                  <th style="width:12%">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                  <tr class="{% if r.skipped %}text-muted{% endif %}">
+                    <td>
+                      {% if r.user %}
+                        {{ r.user.get_full_name|default:r.user.username }}
+                      {% else %}
+                        —
+                      {% endif %}
+                      {% if r.skipped %}
+                        <span class="badge text-bg-light ms-2">Skipped</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if r.selected_texts %}
+                        {{ r.selected_texts|join:", " }}
+                      {% else %}—{% endif %}
+                    </td>
+                    <td>{{ r.points }}</td>
+                  </tr>
+                {% empty %}
+                  <tr class="text-muted"><td colspan="3" class="p-3">No participants.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if q.choices %}
+            <div class="border-top small p-2">
+              <strong>Correct answer{% if q.question_type == "MSQ" %}s{% endif %}:</strong>
+              {% with has_any=False %}
+                {% for ch in q.choices %}
+                  {% if ch.is_correct %}
+                    <span class="badge text-bg-success me-1">#{{ forloop.counter }} {{ ch.text }}</span>
+                    {% with True as has_any %}{% endwith %}
+                  {% endif %}
+                {% endfor %}
+                {% comment %}
+                  If none were marked correct (unlikely), show a dash.
+                {% endcomment %}
+                {% if not has_any %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              {% endwith %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-light border">No questions found for this session.</div>
+  {% endif %}
+
+  <a href="{% url 'livesession_detail' session.id %}" class="btn btn-outline-secondary btn-sm">Back to session</a>
+</div>
+{% endblock %}

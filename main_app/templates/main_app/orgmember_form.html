@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 640px;">
+  <h1 class="h5 mb-3">Create Organization Member</h1>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    {% if user.is_superuser %}
+      <div class="mb-3">
+        <label class="form-label">Organization</label>
+        {{ form.organization }}
+        {{ form.organization.errors }}
+      </div>
+    {% else %}
+      {{ form.organization }} {# hidden when admin/manager #}
+      <div class="mb-2 text-muted">Organization: {{ actor_org.name }}</div>
+    {% endif %}
+
+    <div class="mb-3">
+      <label class="form-label">Role</label>
+      {{ form.role }}
+      {{ form.role.errors }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      {{ form.username }}
+      {{ form.username.errors }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      {{ form.email }}
+      {{ form.email.errors }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      {{ form.password }}
+      <div class="form-text">Leave blank to send a reset later or keep existing user’s password.</div>
+      {{ form.password.errors }}
+    </div>
+
+    <button class="btn btn-primary" type="submit">Create</button>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+  </form>
+</div>
+{% endblock %}

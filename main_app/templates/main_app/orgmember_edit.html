@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width: 680px;">
+  <h1 class="h5 mb-3">Edit Member</h1>
+  <div class="mb-2 text-muted">Organization: {{ membership.organization.name }}</div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="mb-3">
+      <label class="form-label">Role</label>
+      {{ form.role }}
+      {{ form.role.errors }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      {{ form.username }}
+      {{ form.username.errors }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      {{ form.email }}
+      {{ form.email.errors }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">New Password</label>
+      {{ form.password }}
+      <div class="form-text">Leave blank to keep the current password.</div>
+      {{ form.password.errors }}
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+  </form>
+</div>
+{% endblock %}
