@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: mindarena
+    env: python
+    plan: starter
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: daphne -b 0.0.0.0 -p $PORT mindarena.asgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: mindarena.settings
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: mindarena.onrender.com,.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://mindarena.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mindarena-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: mindarena-redis
+          type: redis
+          property: connectionString
+    postDeployCommand: python manage.py migrate --noinput
+
+databases:
+  - name: mindarena-db
+    plan: starter
+
+services:
+  - type: redis
+    name: mindarena-redis
+    plan: starter
+    ipAllowList: []   # public access disabled; used internally by web service
